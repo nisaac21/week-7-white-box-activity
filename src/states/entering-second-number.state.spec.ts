@@ -1,10 +1,12 @@
 
-import { NumericKeys } from '../enums';
+import { NumericKeys, OperatorKeys } from '../enums';
 import { ICalculatorState, IContext, IStateData } from '../interfaces';
 import { CalculatorModel } from '../models/calculator.model';
 import { StateData } from '../models/state-data.model';
 import { EnteringFirstNumberState } from './entering-first-number.state';
 import { EnteringSecondNumberState } from './entering-second-number.state';
+import { EnteringThirdNumberState } from './entering-third-number.state';
+import { ErrorState } from './error.state';
 
 describe('states', (): void => {
   describe('EnteringSecondNumberState', (): void => {
@@ -81,11 +83,148 @@ describe('states', (): void => {
     });
 
     describe('binaryOperator()', (): void => {
-      it('should do something');
+      it('should convert to 1+1 to 2+ when the next operator is +', (): void => {
+        enteringSecondNumberState.data.firstBuffer = '1';
+        enteringSecondNumberState.data.firstOperator = OperatorKeys.PLUS;
+        enteringSecondNumberState.data.secondBuffer = '1';
+        
+        jest.spyOn(enteringSecondNumberState, 'add').mockReturnValue(2);
+
+        enteringSecondNumberState.binaryOperator(OperatorKeys.PLUS);
+
+        expect(enteringSecondNumberState.data.firstBuffer).toEqual('2');
+        expect(enteringSecondNumberState.data.firstOperator).toEqual(OperatorKeys.PLUS);
+        expect(enteringSecondNumberState.data.secondBuffer).toEqual('');
+        expect(enteringSecondNumberState.add).toHaveBeenCalledWith(1, 1);
+      });
+
+      it('should transition to ErrorState when dividing by zero', (): void => {
+        enteringSecondNumberState.data.firstBuffer = '10';
+        enteringSecondNumberState.data.firstOperator = OperatorKeys.DIV;
+        enteringSecondNumberState.data.secondBuffer = '0';
+      
+        const changeStateSpy = jest.spyOn(enteringSecondNumberState.context, 'changeState');
+      
+        enteringSecondNumberState.binaryOperator(OperatorKeys.PLUS);
+      
+        expect(changeStateSpy).toHaveBeenCalledWith(expect.any(ErrorState));
+      });
+
+      it('should multiply two numbers and set the next operator', (): void => {
+        enteringSecondNumberState.data.firstBuffer = '5';
+        enteringSecondNumberState.data.firstOperator = OperatorKeys.MULT;
+        enteringSecondNumberState.data.secondBuffer = '3';
+      
+        const multiplySpy = jest.spyOn(enteringSecondNumberState, 'multiply').mockReturnValue(15);
+      
+        enteringSecondNumberState.binaryOperator(OperatorKeys.PLUS);
+      
+        expect(enteringSecondNumberState.data.firstBuffer).toEqual('15');
+        expect(enteringSecondNumberState.data.firstOperator).toEqual(OperatorKeys.PLUS);
+        expect(enteringSecondNumberState.data.secondBuffer).toEqual('');
+        expect(multiplySpy).toHaveBeenCalledWith(5, 3);
+      });
+
+      it('should change operator from PLUS to MULT without affecting buffers', (): void => {
+        enteringSecondNumberState.data.firstBuffer = '7';
+        enteringSecondNumberState.data.firstOperator = OperatorKeys.PLUS;
+        enteringSecondNumberState.data.secondBuffer = '2';
+      
+        enteringSecondNumberState.binaryOperator(OperatorKeys.MULT);
+      
+        expect(enteringSecondNumberState.data.firstBuffer).toEqual('7');
+        expect(enteringSecondNumberState.data.firstOperator).toEqual(OperatorKeys.PLUS);
+        expect(enteringSecondNumberState.data.secondBuffer).toEqual('2');
+      });
+      
+      it('should subtract after multiplication', (): void => {
+        enteringSecondNumberState.data.firstBuffer = '8';
+        enteringSecondNumberState.data.firstOperator = OperatorKeys.MULT;
+        enteringSecondNumberState.data.secondBuffer = '2';
+      
+        const multiplySpy = jest.spyOn(enteringSecondNumberState, 'multiply').mockReturnValue(16);
+      
+        enteringSecondNumberState.binaryOperator(OperatorKeys.MINUS);
+      
+        expect(enteringSecondNumberState.data.firstBuffer).toEqual('16');
+        expect(enteringSecondNumberState.data.firstOperator).toEqual(OperatorKeys.MINUS);
+        expect(enteringSecondNumberState.data.secondBuffer).toEqual('');
+        expect(multiplySpy).toHaveBeenCalledWith(8, 2);
+      });
+      
+      
+
     });
 
     describe('equals()', (): void => {
-      it.todo('should do something');
+      it('should change state to EnteringFirstNumberState after addition', () => {
+        enteringSecondNumberState.data.firstBuffer = '5';
+        enteringSecondNumberState.data.firstOperator = OperatorKeys.PLUS;
+        enteringSecondNumberState.data.secondBuffer = '3';
+    
+        enteringSecondNumberState.equals();
+        expect(enteringSecondNumberState.data.firstBuffer).toBe('8'); // 5 + 3
+      });
+    
+      it('should change state to EnteringFirstNumberState after subtraction', () => {
+        enteringSecondNumberState.data.firstBuffer = '5';
+        enteringSecondNumberState.data.firstOperator = OperatorKeys.MINUS;
+        enteringSecondNumberState.data.secondBuffer = '2';
+    
+        enteringSecondNumberState.equals();
+    
+        expect(context.changeState).toHaveBeenCalled();
+        expect(context.changeState).toHaveBeenCalledWith(expect.any(EnteringFirstNumberState));
+        expect(enteringSecondNumberState.data.firstBuffer).toBe('3'); // 5 - 2
+      });
+    
+      it('should change state to EnteringFirstNumberState after multiplication', () => {
+        enteringSecondNumberState.data.firstBuffer = '4';
+        enteringSecondNumberState.data.firstOperator = OperatorKeys.MULT;
+        enteringSecondNumberState.data.secondBuffer = '2';
+    
+        enteringSecondNumberState.equals();
+    
+        expect(context.changeState).toHaveBeenCalled();
+        expect(context.changeState).toHaveBeenCalledWith(expect.any(EnteringFirstNumberState));
+        expect(enteringSecondNumberState.data.firstBuffer).toBe('8'); // 4 * 2
+      });
+    
+      it('should change state to EnteringFirstNumberState after division', () => {
+        enteringSecondNumberState.data.firstBuffer = '10';
+        enteringSecondNumberState.data.firstOperator = OperatorKeys.DIV;
+        enteringSecondNumberState.data.secondBuffer = '2';
+    
+        enteringSecondNumberState.equals();
+    
+        expect(context.changeState).toHaveBeenCalled();
+        expect(context.changeState).toHaveBeenCalledWith(expect.any(EnteringFirstNumberState));
+        expect(enteringSecondNumberState.data.firstBuffer).toBe('5'); // 10 / 2
+      });
+    
+      it('should change state to ErrorState when dividing by zero', () => {
+        enteringSecondNumberState.data.firstBuffer = '10';
+        enteringSecondNumberState.data.firstOperator = OperatorKeys.DIV;
+        enteringSecondNumberState.data.secondBuffer = '0';
+    
+        enteringSecondNumberState.equals();
+    
+        expect(context.changeState).toHaveBeenCalled();
+        expect(context.changeState).toHaveBeenCalledWith(expect.any(ErrorState));
+      });
+    
+      it('should handle empty buffers as zero in addition', () => {
+        enteringSecondNumberState.data.firstBuffer = '';
+        enteringSecondNumberState.data.firstOperator = OperatorKeys.PLUS;
+        enteringSecondNumberState.data.secondBuffer = '';
+    
+        enteringSecondNumberState.equals();
+    
+        expect(context.changeState).toHaveBeenCalled();
+        expect(context.changeState).toHaveBeenCalledWith(expect.any(EnteringFirstNumberState));
+        expect(enteringSecondNumberState.data.firstBuffer).toBe('0'); // 0 + 0
+      });
+      
     });
 
     describe('clear()', (): void => {
